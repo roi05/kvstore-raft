@@ -1,0 +1,45 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Output of go build / go install
+/build/
+bin/
+*.out
+
+# Test binary
+*.test
+
+# Coverage and profiling
+*.cover
+*.prof
+*.pprof
+
+# Dependency directories
+vendor/
+
+# Workspace files
+go.work
+go.work.sum
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Environment/config files
+*.env
+*.pem
+
+
+store.log

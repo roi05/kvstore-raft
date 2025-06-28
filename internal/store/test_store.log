@@ -1,0 +1,3 @@
+SET a 1
+DELETE a
+SET b 2

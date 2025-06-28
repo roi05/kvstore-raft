@@ -41,16 +41,42 @@ func (s *Store) Set(key, value string) {
 	s.data[key] = value
 }
 
+func (s *Store) Delete(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Optional: append to WAL (if you want durability for deletes)
+	entry := fmt.Sprintf("DELETE %s\n", key)
+	_, _ = s.log.WriteString(entry)
+
+	delete(s.data, key)
+}
+
 // Replay WAL on startup to rebuild the in-memory store
 func (s *Store) replayLog() {
+	// Go back to the beginning of the file
+	_, err := s.log.Seek(0, 0)
+	if err != nil {
+		fmt.Println("seek error:", err)
+		return
+	}
+
 	buf := make([]byte, 4096)
 	n, _ := s.log.Read(buf)
-	lines := string(buf[:n])
-	for _, line := range splitLines(lines) {
-		var cmd, key, val string
-		fmt.Sscanf(line, "%s %s %s", &cmd, &key, &val)
-		if cmd == "SET" {
+	if n == 0 {
+		return
+	}
+
+	lines := splitLines(string(buf[:n]))
+	for _, line := range lines {
+		var key, val string
+
+		if _, err := fmt.Sscanf(line, "SET %s %s", &key, &val); err == nil {
 			s.data[key] = val
+		} else if _, err := fmt.Sscanf(line, "DELETE %s", &key); err == nil {
+			delete(s.data, key)
+		} else {
+			fmt.Println("unknown log line:", line)
 		}
 	}
 }

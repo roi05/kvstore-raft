@@ -18,6 +18,10 @@ func NewHandler(store *store.Store) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/set":
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		key := r.URL.Query().Get("key")
 		val := r.URL.Query().Get("val")
 		if key == "" || val == "" {
@@ -35,6 +39,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Fprint(w, val)
+
+	case "/delete":
+		if r.Method != http.MethodDelete {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		key := r.URL.Query().Get("key")
+		if key == "" {
+			http.Error(w, "missing key", http.StatusBadRequest)
+			return
+		}
+		h.store.Delete(key)
+		fmt.Fprint(w, "OK")
 
 	default:
 		http.NotFound(w, r)

@@ -1,0 +1,4 @@
+SET foo bar
+SET hello world
+DELETE hello
+SET foo bar

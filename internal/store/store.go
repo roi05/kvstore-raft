@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"sync"
@@ -61,14 +62,10 @@ func (s *Store) replayLog() {
 		return
 	}
 
-	buf := make([]byte, 4096)
-	n, _ := s.log.Read(buf)
-	if n == 0 {
-		return
-	}
-
-	lines := splitLines(string(buf[:n]))
-	for _, line := range lines {
+	// Create a scanner to read the file line by line
+	scanner := bufio.NewScanner(s.log)
+	for scanner.Scan() {
+		line := scanner.Text()
 		var key, val string
 
 		if _, err := fmt.Sscanf(line, "SET %s %s", &key, &val); err == nil {
@@ -78,6 +75,11 @@ func (s *Store) replayLog() {
 		} else {
 			fmt.Println("unknown log line:", line)
 		}
+	}
+
+	// Check for scanner errors
+	if err := scanner.Err(); err != nil {
+		fmt.Println("scanner error:", err)
 	}
 }
 

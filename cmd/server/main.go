@@ -2,16 +2,20 @@ package main
 
 import (
 	"fmt"
-	"net/http"
+	"time"
 
-	"github.com/roi-05/kvstore-raft/internal/apiserver"
-	"github.com/roi-05/kvstore-raft/internal/store"
+	"github.com/roi-05/kvstore-raft/internal/raft"
 )
 
 func main() {
-	kv := store.NewStore()
-	handler := apiserver.NewHandler(kv)
+	cluster := raft.NewCluster(3)
 
-	fmt.Println("Server running at :8080")
-	http.ListenAndServe(":8080", handler)
+	cluster.Set("x", "100")
+	cluster.Set("y", "200")
+
+	time.Sleep(1 * time.Second) // wait for messages to deliver
+
+	for _, node := range cluster.Nodes {
+		fmt.Printf("Node %d store: %+v\n", node.ID, node.GetStore())
+	}
 }

@@ -1,0 +1,35 @@
+    # Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Build output
+bin/
+build/
+dist/
+
+# Go build cache
+*.log
+*.tmp
+*.cache
+
+# Go vendor dependencies (if you're not vendoring)
+vendor/
+
+# IDE/editor configs
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Config files
+.env
+*.local
+*.bak

@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -31,4 +32,18 @@ type Node struct {
 	Heartbeat     *time.Ticker // Heartbeat ticker (only for leader)
 
 	mu sync.Mutex // Protects access to node state
+}
+
+func (n *Node) Run() {
+	for msg := range n.Inbox {
+		fmt.Println(msg)
+	}
+}
+
+func (n *Node) Send(to int, msg message.Message) {
+	n.Outbox <- message.OutMsg{To: to, Msg: msg}
+}
+
+func NewNode(id int, peers []int) *Node {
+	return &Node{ID: id, Peers: peers}
 }

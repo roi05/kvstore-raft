@@ -7,6 +7,7 @@ import (
 
 	"github.com/roi05/kvstore-raft/kv"
 	"github.com/roi05/kvstore-raft/message"
+	"github.com/roi05/kvstore-raft/utils"
 )
 
 type Node struct {
@@ -35,8 +36,17 @@ type Node struct {
 }
 
 func (n *Node) Run() {
-	for msg := range n.Inbox {
-		fmt.Println(msg)
+	for {
+		switch n.Role {
+		case Candidate:
+			n.runCandidate()
+		case Follower:
+			n.runFollower()
+		case Leader:
+			n.runLeader()
+		default:
+			return
+		}
 	}
 }
 
@@ -46,4 +56,113 @@ func (n *Node) Send(to int, msg message.Message) {
 
 func NewNode(id int, peers []int) *Node {
 	return &Node{ID: id, Peers: peers}
+}
+
+func (n *Node) runFollower() {
+	for {
+		duration := utils.ElectionTimeoutDuration()
+		n.ElectionTimer = time.NewTimer(duration)
+
+		select {
+		case <-n.Inbox:
+			fmt.Println("Received message")
+
+			duration := utils.ElectionTimeoutDuration()
+
+			if !n.ElectionTimer.Stop() {
+				<-n.ElectionTimer.C
+			}
+			n.ElectionTimer.Reset(duration)
+
+		case <-n.ElectionTimer.C:
+			n.Role = Candidate
+			fmt.Println("Election timeout")
+			return
+		}
+	}
+}
+
+func (n *Node) runCandidate() {
+	n.mu.Lock()
+	n.CurrentTerm++
+	n.VotedFor = &n.ID
+	n.mu.Unlock()
+
+	voteCount := 1
+	duration := utils.ElectionTimeoutDuration()
+
+	if !n.ElectionTimer.Stop() {
+		select {
+		case <-n.ElectionTimer.C:
+		default:
+		}
+	}
+	n.ElectionTimer.Reset(duration)
+
+	for _, peer := range n.Peers {
+		n.Send(peer, message.Message{
+			From: n.ID,
+			To:   peer,
+			Term: n.CurrentTerm,
+			Type: message.MsgVoteRequest,
+		})
+	}
+
+	for {
+		select {
+		case msg := <-n.Inbox:
+			if msg.Term > n.CurrentTerm {
+				n.Role = Follower
+				n.CurrentTerm = msg.Term
+				n.VotedFor = nil
+				go n.runFollower()
+				return
+			}
+
+			if msg.Type == message.MsgVoteResponse && msg.Term == n.CurrentTerm {
+				voteCount++
+				if voteCount > len(n.Peers)/2 {
+					fmt.Println("[Node", n.ID, "] Won election, becoming Leader")
+					n.Role = Leader
+					go n.runLeader()
+					return
+				}
+			}
+
+		case <-n.ElectionTimer.C:
+			fmt.Println("[Node", n.ID, "] Election timeout, restarting election")
+			go n.runCandidate()
+			return
+		}
+	}
+}
+
+func (n *Node) runLeader() {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			for _, peer := range n.Peers {
+				n.Send(peer, message.Message{
+					From: n.ID,
+					To:   peer,
+					Term: n.CurrentTerm,
+					Type: message.MsgHeartbeat,
+				})
+				fmt.Printf("[Leader %d] Sent heartbeat to Node %d\n", n.ID, peer)
+			}
+
+		case msg := <-n.Inbox:
+			if msg.Term >= n.CurrentTerm {
+				fmt.Println("Saw higher term, become follower")
+				n.Role = Follower
+				n.CurrentTerm = msg.Term
+				n.VotedFor = nil
+
+				return // you'll transition to follower outside
+			}
+		}
+	}
 }
